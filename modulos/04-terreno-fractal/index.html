@@ -242,6 +242,26 @@ uniform int mode;
 uniform float sea, relief, time;
 uniform sampler2D heightMap;
 out vec4 pixel;
+float hash(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * .1031);
+  q += dot(q,q.yzx+33.33);
+  return fract((q.x+q.y)*q.z);
+}
+float textureNoise(vec2 p) {
+  vec2 i=floor(p), f=fract(p);
+  vec2 t=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),t.x),
+             mix(hash(i+vec2(0,1)),hash(i+1.),t.x),t.y);
+}
+float grain(vec2 p, float frequency) {
+  float footprint=max(length(dFdx(p)),length(dFdy(p))) * frequency;
+  return (textureNoise(p*frequency)-.5) * (1.-smoothstep(.18,.85,footprint));
+}
+vec3 atmosphere(vec3 rgb, float strength) {
+  float distanceFade=smoothstep(.04,1.25,-dot(world,viewDir));
+  return mix(rgb,vec3(.66,.76,.84),distanceFade*strength);
+}
+
 void main() {
   if (mode == 2) {
     pixel = vec4(.08,.12,.16,.52);
@@ -254,13 +274,16 @@ void main() {
     float floorHeight = (texture(heightMap,clamp(uv,0.,1.)).r * .9 - .38) * relief;
     float shallow = inside * (1. - smoothstep(.003,.16,sea-floorHeight));
     float foam = inside * (1. - smoothstep(.002,.020,sea-floorHeight));
-    float wave = sin(92.*p.x+31.*p.y+time*.8) + sin(49.*p.y-24.*p.x-time);
+    float swell = textureNoise(p*8.);
+    float wave = sin(92.*p.x+31.*p.y+time*.8+swell*8.)
+        + sin(49.*p.y-24.*p.x-time+swell*5.);
+    float ripples = grain(p+vec2(time*.012,-time*.009),340.);
     vec3 n = normalize(vec3(.045*wave,1.,.07*sin(73.*p.y+13.*p.x+time)));
     float reflection = pow(max(0.,dot(reflect(-light,n),viewDir)),48.);
     vec3 rgb = mix(vec3(.038,.17,.30),vec3(.13,.62,.68),shallow);
-    rgb += reflection * vec3(.72,.81,.83) + wave*.009;
-    rgb = mix(rgb,vec3(.77,.92,.90),foam*.67);
-    pixel = vec4(rgb,1.);
+    rgb += reflection * vec3(.72,.81,.83) + wave*.012 + ripples*.065;
+    rgb = mix(rgb,vec3(.77,.92,.90),foam*(.52+swell*.30));
+    pixel = vec4(atmosphere(rgb,.34),1.);
     return;
   }
   vec3 n = normalize(normal);
@@ -268,9 +291,18 @@ void main() {
   int a = int(band);
   vec3 base = mix(colors[a],colors[a+1],fract(band));
   float steep = smoothstep(.17,.79,1.-n.y);
-  base = mix(base,vec3(.23,.26,.28),steep*.75);
-  float lit = .43 + .66 * max(0.,dot(n,light));
-  pixel = vec4(base * lit,1.);
+  float vegetation = textureNoise(world.xz*49.);
+  float strata = sin((world.y + world.x*.11 + world.z*.07)*290.
+      + textureNoise(world.xz*72.)*4.);
+  float grit = grain(world.xz,480.)*.73 + grain(world.xz,1250.)*.27;
+  vec3 rock = mix(vec3(.16,.19,.20),vec3(.33,.35,.33),
+    clamp(.5 + strata*.18 + vegetation*.20 + grit*.34,0.,1.));
+  base *= .87 + vegetation*.24 + grit*.31;
+  base = mix(base,rock,steep*.85);
+  float rockCrease = smoothstep(.14,.65,steep) * (.92 + strata*.08);
+  float lit = .37 + .72 * max(0.,dot(n,light));
+  vec3 rgb = base * lit * mix(1., rockCrease,steep*.30);
+  pixel = vec4(atmosphere(rgb,.26),1.);
 }`;
 
 function compile(type, source) {
