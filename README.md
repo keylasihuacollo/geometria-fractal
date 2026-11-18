@@ -31,6 +31,7 @@ y entra a <http://localhost:8000>.
 ```
 index.html          portada que enlaza a los módulos
 modulos/NN-nombre/  un módulo por integrante (index.html autocontenido)
+modulos/_plantilla/ plantilla base de la que parten los módulos 2 a 5
 docs/informe/       capítulos del informe (APA)
 docs/presentacion/  diapositivas y video de respaldo
 docs/bitacora-ia.md registro de uso de IA (exigido por la rúbrica)
