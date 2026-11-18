@@ -292,7 +292,7 @@ function rotate(dx, dy) {
 }
 
 function zoom(factor) {
-  camera.zoom = limit(camera.zoom * factor, .55, 3);
+  camera.zoom = limit(camera.zoom * factor, .55, 12);
   queueDraw();
 }
 
