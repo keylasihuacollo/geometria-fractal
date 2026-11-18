@@ -169,6 +169,7 @@ const palettes = {
 };
 const paletteSelect = byId('palette');
 let palette = palettes.alpine;
+let paletteUniform = new Float32Array(palette.flat().map(channel => channel / 255));
 let terrain;
 let frame = 0;
 
@@ -203,6 +204,7 @@ function changeHeight() {
 
 function changePalette() {
   palette = palettes[paletteSelect.value];
+  paletteUniform = new Float32Array(palette.flat().map(channel => channel / 255));
   const stops = palette.map(rgb => 'rgb(' + rgb.join(',') + ')');
   byId('gradient').style.background = 'linear-gradient(90deg,' + stops.join(',') + ')';
   queueDraw();
@@ -273,17 +275,25 @@ void main() {
     float inside = step(0.,uv.x)*step(0.,uv.y)*step(uv.x,1.)*step(uv.y,1.);
     float floorHeight = (texture(heightMap,clamp(uv,0.,1.)).r * .9 - .38) * relief;
     float shallow = inside * (1. - smoothstep(.003,.16,sea-floorHeight));
-    float foam = inside * (1. - smoothstep(.002,.020,sea-floorHeight));
-    float swell = textureNoise(p*8.);
-    float wave = sin(92.*p.x+31.*p.y+time*.8+swell*8.)
-        + sin(49.*p.y-24.*p.x-time+swell*5.);
-    float ripples = grain(p+vec2(time*.012,-time*.009),340.);
-    vec3 n = normalize(vec3(.045*wave,1.,.07*sin(73.*p.y+13.*p.x+time)));
-    float reflection = pow(max(0.,dot(reflect(-light,n),viewDir)),48.);
-    vec3 rgb = mix(vec3(.038,.17,.30),vec3(.13,.62,.68),shallow);
-    rgb += reflection * vec3(.72,.81,.83) + wave*.012 + ripples*.065;
-    rgb = mix(rgb,vec3(.77,.92,.90),foam*(.52+swell*.30));
-    pixel = vec4(atmosphere(rgb,.34),1.);
+    float foam = inside * (1. - smoothstep(.001,.010,sea-floorHeight));
+    float waveA = dot(p,vec2(48.,21.)) + time*.72;
+    float waveB = dot(p,vec2(-36.,64.)) - time*.91;
+    float waveC = dot(p,vec2(87.,-47.)) + time*.54;
+    vec2 slope = .036*cos(waveA)*vec2(.916,.401)
+        + .024*cos(waveB)*vec2(-.490,.872)
+        + .012*cos(waveC)*vec2(.880,-.475);
+    vec3 n = normalize(vec3(-slope.x,1.,-slope.y));
+    float reflection = pow(max(0.,dot(reflect(-light,n),viewDir)),82.);
+    float fresnel = pow(1.-max(0.,dot(n,viewDir)),4.);
+    vec3 deep = vec3(.038,.20,.32);
+    vec3 coast = vec3(.16,.55,.59);
+    vec3 rgb = mix(deep,coast,shallow);
+    rgb = mix(rgb,vec3(.43,.62,.73),fresnel*.52);
+    rgb += reflection * vec3(.68,.70,.64) + sin(waveA+waveB)*.008;
+    rgb = mix(rgb,vec3(.76,.90,.88),foam*(.36+.13*sin(waveC)));
+    float openWater = smoothstep(.72,1.28,max(abs(p.x),abs(p.y)));
+    rgb = mix(atmosphere(rgb,.27),vec3(.66,.76,.84),openWater);
+    pixel = vec4(rgb,1.);
     return;
   }
   vec3 n = normalize(normal);
@@ -424,7 +434,7 @@ function draw(now = performance.now()) {
   gl.uniform1f(uniforms.time,now*.001);
   gl.uniform3f(uniforms.light,-.62*Math.cos(solar),Math.sin(solar),.7846*Math.cos(solar));
   gl.uniform3f(uniforms.viewDir,Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-  gl.uniform3fv(uniforms['colors[0]'],palette.flat().map(channel=>channel/255));
+  gl.uniform3fv(uniforms['colors[0]'],paletteUniform);
   gl.uniform1i(uniforms.mode,1);
   bindVertices(ocean);
   gl.drawArrays(gl.TRIANGLES,0,6);
