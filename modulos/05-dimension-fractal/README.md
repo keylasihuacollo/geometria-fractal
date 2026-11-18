@@ -1,6 +1,6 @@
 # Módulo 5 · Dimensión fractal
 
-**Responsable:** _por asignar_
+**Responsable:** Puente Carmen, Rodrigo Joaquin
 **Estado:** pendiente
 
 ## Qué debe entregar

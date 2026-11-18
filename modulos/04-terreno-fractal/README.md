@@ -1,6 +1,6 @@
 # Módulo 4 · Terreno fractal
 
-**Responsable:** _por asignar_
+**Responsable:** Sihuacollo Sierra, Keyla Noemi
 **Estado:** pendiente
 
 ## Qué debe entregar

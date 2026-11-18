@@ -1,6 +1,6 @@
 # Módulo 2 · IFS y Chaos Game
 
-**Responsable:** _por asignar_
+**Responsable:** Cerna Aguilar, Emily Andrea
 **Estado:** pendiente
 
 ## Qué debe entregar

@@ -1,6 +1,6 @@
 # Módulo 3 · L-systems
 
-**Responsable:** _por asignar_
+**Responsable:** Flores Cortez, Valeria Alexandra
 **Estado:** pendiente
 
 ## Qué debe entregar

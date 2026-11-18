@@ -9,11 +9,13 @@ Aplicación web interactiva (HTML + JavaScript + WebGL) que muestra los algoritm
 
 | # | Módulo | Técnica y demostración | Responsable | Estado |
 |---|--------|------------------------|-------------|--------|
-| 1 | [Conjuntos de escape](modulos/01-conjuntos-escape) | Mandelbrot y Julia con zoom interactivo | _por asignar_ | Prototipo listo |
-| 2 | [IFS y Chaos Game](modulos/02-ifs-chaos-game) | Helecho de Barnsley, triángulo de Sierpinski | _por asignar_ | Pendiente |
-| 3 | [L-systems](modulos/03-l-systems) | Plantas y curva de Koch por reglas de reescritura | _por asignar_ | Pendiente |
-| 4 | [Terreno fractal](modulos/04-terreno-fractal) | Ruido fBm o diamond-square en 3D | _por asignar_ | Pendiente |
-| 5 | [Dimensión fractal](modulos/05-dimension-fractal) | Box-counting sobre una imagen cargada por el usuario | _por asignar_ | Pendiente |
+| 1 | [Conjuntos de escape](modulos/01-conjuntos-escape) | Mandelbrot y Julia con zoom interactivo | Pachas Auris, Pieers Fernando | Prototipo listo |
+| 2 | [IFS y Chaos Game](modulos/02-ifs-chaos-game) | Helecho de Barnsley, triángulo de Sierpinski | Cerna Aguilar, Emily Andrea | Pendiente |
+| 3 | [L-systems](modulos/03-l-systems) | Plantas y curva de Koch por reglas de reescritura | Flores Cortez, Valeria Alexandra | Pendiente |
+| 4 | [Terreno fractal](modulos/04-terreno-fractal) | Ruido fBm o diamond-square en 3D | Sihuacollo Sierra, Keyla Noemi | Pendiente |
+| 5 | [Dimensión fractal](modulos/05-dimension-fractal) | Box-counting sobre una imagen cargada por el usuario | Puente Carmen, Rodrigo Joaquin | Pendiente |
+
+**Integración y revisión de formato (APA, ortografía):** Bada Watanave, Camila del Rosario.
 
 ## Cómo ejecutarlo
 
