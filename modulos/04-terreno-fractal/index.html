@@ -66,16 +66,17 @@ input[type=number],button{background:#111426}
 <h2 id="settings">Controles</h2>
 <label for="palette">Paleta de elevación</label>
 <select id="palette">
+<option value="volcanic">Volcánica</option>
 <option value="alpine">Alpina</option>
 <option value="desert">Desierto</option>
 <option value="violet">Violeta</option>
 </select>
 <label for="roughness">Rugosidad <output id="roughValue" for="roughness"></output></label>
-<input id="roughness" type="range" min=".15" max=".9" step=".01" value=".59">
+<input id="roughness" type="range" min=".15" max=".9" step=".01" value=".72">
 <label for="height">Altura del relieve <output id="heightValue" for="height"></output></label>
-<input id="height" type="range" min=".35" max="1.8" step=".05" value="1">
+<input id="height" type="range" min=".35" max="1.8" step=".05" value="1.20">
 <label for="detail">Nivel de detalle <output id="detailValue" for="detail"></output></label>
-<input id="detail" type="range" min="3" max="6" step="1" value="6">
+<input id="detail" type="range" min="3" max="7" step="1" value="7">
 <label for="seed">Semilla</label>
 <input id="seed" type="number" min="0" max="4294967295" step="1" value="4817">
 <label class="check"><input id="mesh" type="checkbox"> Mostrar malla</label>
@@ -155,12 +156,15 @@ const mesh = byId('mesh');
 const initialCamera = {yaw: -.65, pitch: .59, zoom: 1};
 const camera = {...initialCamera};
 const palettes = {
+  volcanic: [[17,12,32],[58,21,53],[135,39,52],[222,78,34],[255,160,57],[255,229,159]],
   alpine: [[35,74,102],[46,103,111],[79,146,111],[149,151,105],[189,174,145],[243,242,232]],
   desert: [[79,42,54],[123,64,55],[169,91,54],[206,137,72],[228,178,111],[255,232,183]],
   violet: [[42,42,102],[74,55,135],[115,81,164],[162,106,194],[204,150,219],[244,218,251]]
 };
 const paletteSelect = byId('palette');
-let palette = palettes.alpine;
+let palette = palettes.volcanic;
+let minElevation = 0;
+let elevationRange = 1;
 let terrain;
 let frame = 0;
 
@@ -170,6 +174,15 @@ function queueDraw() {
 
 function rebuild() {
   terrain = makeTerrain(detail.valueAsNumber, roughness.valueAsNumber, seed.valueAsNumber);
+  minElevation = Infinity;
+  let maxElevation = -Infinity;
+  for (const row of terrain) {
+    for (const elevation of row) {
+      minElevation = Math.min(minElevation, elevation);
+      maxElevation = Math.max(maxElevation, elevation);
+    }
+  }
+  elevationRange = maxElevation - minElevation || 1;
   byId('roughValue').value = roughness.valueAsNumber.toFixed(2);
   byId('detailValue').value = terrain.length + ' × ' + terrain.length;
   queueDraw();
@@ -181,11 +194,11 @@ function changeHeight() {
 }
 
 function color(elevation, slopeX, slopeZ) {
-  const index = Math.max(0, Math.min(palette.length - 1.001, (elevation + .47) / .94 * (palette.length - 1)));
+  const index = Math.max(0, Math.min(palette.length - 1.001, (elevation - minElevation) / elevationRange * (palette.length - 1)));
   const base = Math.floor(index);
   const fraction = index - base;
   const normalLength = Math.hypot(slopeX, 1, slopeZ);
-  const light = .65 + .42 * Math.max(0, (slopeX * .42 + .83 + slopeZ * .35) / normalLength);
+  const light = .42 + .65 * Math.max(0, (-slopeX * .58 + .72 + slopeZ * .38) / normalLength);
   const rgb = palette[base].map((channel, i) =>
     Math.min(255, Math.round((channel + (palette[base + 1][i] - channel) * fraction) * light)));
   return 'rgb(' + rgb.join(',') + ')';
@@ -211,8 +224,8 @@ function draw() {
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const background = ctx.createRadialGradient(width * .52, screenHeight * .44, 0,
     width * .52, screenHeight * .44, Math.max(width, screenHeight) * .65);
-  background.addColorStop(0, '#34314d');
-  background.addColorStop(1, '#121225');
+  background.addColorStop(0, '#3e263b');
+  background.addColorStop(1, '#100c1a');
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, screenHeight);
   byId('zoomValue').value = camera.zoom.toFixed(1) + '×';
