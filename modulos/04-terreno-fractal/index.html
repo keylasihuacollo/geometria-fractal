@@ -67,16 +67,22 @@ input[type=number],button{background:#111426}
 <label for="palette">Paleta de elevación</label>
 <select id="palette">
 <option value="volcanic">Volcánica</option>
-<option value="alpine">Alpina</option>
+<option value="alpine" selected>Alpina</option>
 <option value="desert">Desierto</option>
 <option value="violet">Violeta</option>
 </select>
 <label for="roughness">Rugosidad <output id="roughValue" for="roughness"></output></label>
-<input id="roughness" type="range" min=".15" max=".9" step=".01" value=".72">
+<input id="roughness" type="range" min=".15" max=".9" step=".01" value=".64">
 <label for="height">Altura del relieve <output id="heightValue" for="height"></output></label>
-<input id="height" type="range" min=".35" max="1.8" step=".05" value="1.20">
+<input id="height" type="range" min=".35" max="1.8" step=".05" value="1.10">
+<label for="water">Nivel del mar <output id="waterValue"></output></label>
+<input id="water" type="range" min="0" max="100" value="30">
+<label for="sun">Altura del sol <output id="sunValue"></output></label>
+<input id="sun" type="range" min="12" max="85" value="37">
+<label class="check"><input id="island" type="checkbox" checked> Forma de isla</label>
+<label class="check"><input id="orbit" type="checkbox"> Órbita automática</label>
 <label for="detail">Nivel de detalle <output id="detailValue" for="detail"></output></label>
-<input id="detail" type="range" min="3" max="7" step="1" value="7">
+<input id="detail" type="range" min="3" max="8" step="1" value="8">
 <label for="seed">Semilla</label>
 <input id="seed" type="number" min="0" max="4294967295" step="1" value="4817">
 <label class="check"><input id="mesh" type="checkbox"> Mostrar malla</label>
@@ -90,7 +96,7 @@ input[type=number],button{background:#111426}
 <canvas id="terrain" tabindex="0" aria-label="Terreno 3D. Usa las flechas para girar y las teclas más y menos para acercar y alejar."></canvas>
 <div class="caption">
 <span>Arrastra para girar · Rueda o teclas + y − para ajustar el zoom</span>
-<span class="zoom">Zoom <output id="zoomValue">1.0×</output></span>
+<span class="zoom">Zoom <output id="zoomValue">1.3×</output></span>
 <span class="legend">Bajo <span class="gradient" id="gradient" aria-hidden="true"></span> Alto</span>
 </div>
 </section>
@@ -147,24 +153,22 @@ function makeTerrain(detail, roughness, seed) {
 
 const byId = id => document.getElementById(id);
 const canvas = byId('terrain');
-const ctx = canvas.getContext('2d');
+
 const roughness = byId('roughness');
 const height = byId('height');
 const detail = byId('detail');
 const seed = byId('seed');
 const mesh = byId('mesh');
-const initialCamera = {yaw: -.65, pitch: .59, zoom: 1};
+const initialCamera = {yaw: -.40, pitch: .48, zoom: 1.30};
 const camera = {...initialCamera};
 const palettes = {
   volcanic: [[17,12,32],[58,21,53],[135,39,52],[222,78,34],[255,160,57],[255,229,159]],
-  alpine: [[35,74,102],[46,103,111],[79,146,111],[149,151,105],[189,174,145],[243,242,232]],
+  alpine: [[192,175,130],[76,104,50],[52,92,52],[78,116,65],[125,139,115],[220,228,221]],
   desert: [[79,42,54],[123,64,55],[169,91,54],[206,137,72],[228,178,111],[255,232,183]],
   violet: [[42,42,102],[74,55,135],[115,81,164],[162,106,194],[204,150,219],[244,218,251]]
 };
 const paletteSelect = byId('palette');
-let palette = palettes.volcanic;
-let minElevation = 0;
-let elevationRange = 1;
+let palette = palettes.alpine;
 let terrain;
 let frame = 0;
 
@@ -174,15 +178,19 @@ function queueDraw() {
 
 function rebuild() {
   terrain = makeTerrain(detail.valueAsNumber, roughness.valueAsNumber, seed.valueAsNumber);
-  minElevation = Infinity;
-  let maxElevation = -Infinity;
-  for (const row of terrain) {
-    for (const elevation of row) {
-      minElevation = Math.min(minElevation, elevation);
-      maxElevation = Math.max(maxElevation, elevation);
+  const span = terrain.length - 1;
+  for (let z = 0; z <= span; z++) {
+    for (let x = 0; x <= span; x++) {
+      const dx = x / span - .5;
+      const dz = z / span - .5;
+      const distance = Math.hypot(dx * 1.03, dz * 1.18);
+      const mountains = .31 * Math.exp(-28 * ((dx+.12)**2+(dz-.04)**2))
+        + .23 * Math.exp(-41 * ((dx-.19)**2+(dz+.13)**2));
+      const coast = island.checked ? .90 * Math.max(0,distance-.22) : -.10;
+      terrain[z][x] = .075 + mountains + terrain[z][x] * .88 - coast;
     }
   }
-  elevationRange = maxElevation - minElevation || 1;
+  updateGeometry();
   byId('roughValue').value = roughness.valueAsNumber.toFixed(2);
   byId('detailValue').value = terrain.length + ' × ' + terrain.length;
   queueDraw();
@@ -193,17 +201,6 @@ function changeHeight() {
   queueDraw();
 }
 
-function color(elevation, slopeX, slopeZ) {
-  const index = Math.max(0, Math.min(palette.length - 1.001, (elevation - minElevation) / elevationRange * (palette.length - 1)));
-  const base = Math.floor(index);
-  const fraction = index - base;
-  const normalLength = Math.hypot(slopeX, 1, slopeZ);
-  const light = .42 + .65 * Math.max(0, (-slopeX * .58 + .72 + slopeZ * .38) / normalLength);
-  const rgb = palette[base].map((channel, i) =>
-    Math.min(255, Math.round((channel + (palette[base + 1][i] - channel) * fraction) * light)));
-  return 'rgb(' + rgb.join(',') + ')';
-}
-
 function changePalette() {
   palette = palettes[paletteSelect.value];
   const stops = palette.map(rgb => 'rgb(' + rgb.join(',') + ')');
@@ -211,74 +208,211 @@ function changePalette() {
   queueDraw();
 }
 
-function draw() {
-  frame = 0;
-  const width = canvas.clientWidth;
-  const screenHeight = canvas.clientHeight;
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-  const pixelWidth = Math.round(width * pixelRatio);
-  const pixelHeight = Math.round(screenHeight * pixelRatio);
-  if (!pixelWidth || !pixelHeight) return;
-  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const background = ctx.createRadialGradient(width * .52, screenHeight * .44, 0,
-    width * .52, screenHeight * .44, Math.max(width, screenHeight) * .65);
-  background.addColorStop(0, '#3e263b');
-  background.addColorStop(1, '#100c1a');
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, width, screenHeight);
-  byId('zoomValue').value = camera.zoom.toFixed(1) + '×';
-
-  const span = terrain.length - 1;
-  const relief = height.valueAsNumber;
-  const cosYaw = Math.cos(camera.yaw);
-  const sinYaw = Math.sin(camera.yaw);
-  const cosPitch = Math.cos(camera.pitch);
-  const sinPitch = Math.sin(camera.pitch);
-  const scale = Math.min(width * .65, screenHeight * .97) * camera.zoom;
-  const points = terrain.map((row, z) => Array.from(row, (elevation, x) => {
-    const worldX = x / span - .5;
-    const worldZ = z / span - .5;
-    const worldY = elevation * relief;
-    const rotatedX = worldX * cosYaw - worldZ * sinYaw;
-    const rotatedZ = worldX * sinYaw + worldZ * cosYaw;
-    return {
-      x: width * .5 + rotatedX * scale,
-      y: screenHeight * .53 + (rotatedZ * sinPitch - worldY * cosPitch) * scale,
-      depth: rotatedZ * cosPitch + worldY * sinPitch,
-      elevation
-    };
-  }));
-
-  const faces = [];
-  function triangle(a, b, c, slopeX, slopeZ) {
-    faces.push({a, b, c, slopeX, slopeZ, depth: a.depth + b.depth + c.depth});
+const gl = canvas.getContext('webgl2', {antialias: true, preserveDrawingBuffer: true, alpha: false});
+const water = byId('water');
+const sun = byId('sun');
+const island = byId('island');
+const orbit = byId('orbit');
+const vertexSource = `#version 300 es
+layout(location=0) in vec3 position;
+layout(location=1) in vec2 slope;
+uniform vec4 cameraAngles;
+uniform vec2 scale;
+uniform float relief, sea;
+uniform int mode;
+out vec3 world;
+out vec3 normal;
+void main() {
+  world = vec3(position.x, mode == 1 ? sea : position.y * relief, position.z);
+  normal = normalize(vec3(-slope.x * relief, 1., -slope.y * relief));
+  float x = world.x * cameraAngles.x - world.z * cameraAngles.y;
+  float z = world.x * cameraAngles.y + world.z * cameraAngles.x;
+  float y = world.y * cameraAngles.z - z * cameraAngles.w;
+  float depth = z * cameraAngles.z + world.y * cameraAngles.w;
+  float perspective = 1. - depth * .32;
+  gl_Position = vec4(x * scale.x, y * scale.y - .07 * perspective, -depth * .36, perspective);
+}`;
+const fragmentSource = `#version 300 es
+precision highp float;
+precision highp int;
+in vec3 world;
+in vec3 normal;
+uniform vec3 colors[6], light, viewDir;
+uniform int mode;
+uniform float sea, relief, time;
+uniform sampler2D heightMap;
+out vec4 pixel;
+void main() {
+  if (mode == 2) {
+    pixel = vec4(.08,.12,.16,.52);
+    return;
   }
-  for (let z = 0; z < span; z++) {
-    for (let x = 0; x < span; x++) {
-      const a = points[z][x];
-      const b = points[z][x + 1];
-      const c = points[z + 1][x];
-      const d = points[z + 1][x + 1];
-      triangle(a, b, c, (b.elevation - a.elevation) * span * relief, (c.elevation - a.elevation) * span * relief);
-      triangle(b, d, c, (d.elevation - c.elevation) * span * relief, (d.elevation - b.elevation) * span * relief);
+  if (mode == 1) {
+    vec2 p = world.xz;
+    vec2 uv = p + .5;
+    float inside = step(0.,uv.x)*step(0.,uv.y)*step(uv.x,1.)*step(uv.y,1.);
+    float floorHeight = (texture(heightMap,clamp(uv,0.,1.)).r * .9 - .38) * relief;
+    float shallow = inside * (1. - smoothstep(.003,.16,sea-floorHeight));
+    float foam = inside * (1. - smoothstep(.002,.020,sea-floorHeight));
+    float wave = sin(92.*p.x+31.*p.y+time*.8) + sin(49.*p.y-24.*p.x-time);
+    vec3 n = normalize(vec3(.045*wave,1.,.07*sin(73.*p.y+13.*p.x+time)));
+    float reflection = pow(max(0.,dot(reflect(-light,n),viewDir)),48.);
+    vec3 rgb = mix(vec3(.038,.17,.30),vec3(.13,.62,.68),shallow);
+    rgb += reflection * vec3(.72,.81,.83) + wave*.009;
+    rgb = mix(rgb,vec3(.77,.92,.90),foam*.67);
+    pixel = vec4(rgb,1.);
+    return;
+  }
+  vec3 n = normalize(normal);
+  float band = clamp((world.y - sea) / (.31 * relief),0.,.9999) * 5.;
+  int a = int(band);
+  vec3 base = mix(colors[a],colors[a+1],fract(band));
+  float steep = smoothstep(.17,.79,1.-n.y);
+  base = mix(base,vec3(.23,.26,.28),steep*.75);
+  float lit = .43 + .66 * max(0.,dot(n,light));
+  pixel = vec4(base * lit,1.);
+}`;
+
+function compile(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(shader));
+  return shader;
+}
+
+function makeProgram() {
+  const program = gl.createProgram();
+  gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(program));
+  gl.useProgram(program);
+  return program;
+}
+
+const program = gl && makeProgram();
+const uniforms = program && Object.fromEntries(
+  ['cameraAngles','scale','relief','sea','mode','colors[0]','light','viewDir','time','heightMap']
+    .map(name => [name, gl.getUniformLocation(program,name)])
+);
+const ground = gl && gl.createBuffer();
+const surface = gl && gl.createBuffer();
+const lines = gl && gl.createBuffer();
+const ocean = gl && gl.createBuffer();
+const heightTexture = gl && gl.createTexture();
+let faces = 0;
+let edges = 0;
+let lastFrame = 0;
+if (gl) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, ocean);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([
+    -1.3,0,-1.3,0,0, 1.3,0,-1.3,0,0, -1.3,0,1.3,0,0,
+    -1.3,0,1.3,0,0, 1.3,0,-1.3,0,0, 1.3,0,1.3,0,0
+  ]),gl.STATIC_DRAW);
+  gl.enable(gl.DEPTH_TEST);
+  gl.bindTexture(gl.TEXTURE_2D,heightTexture);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+} else {
+  byId('zoomValue').value = 'Activa WebGL 2 para ver el terreno';
+}
+
+function updateGeometry() {
+  if (!gl) return;
+  const size = terrain.length;
+  const span = size - 1;
+  const vertices = new Float32Array(size * size * 5);
+  const pixels = new Uint8Array(size * size);
+  const triangles = [];
+  const wire = [];
+  for (let z = 0; z < size; z++) {
+    for (let x = 0; x < size; x++) {
+      const i = z * size + x;
+      const left = Math.max(0,x-1), right = Math.min(span,x+1);
+      const back = Math.max(0,z-1), front = Math.min(span,z+1);
+      vertices.set([x/span-.5,terrain[z][x],z/span-.5,
+        (terrain[z][right]-terrain[z][left])*span/(right-left),
+        (terrain[front][x]-terrain[back][x])*span/(front-back)],i*5);
+      pixels[i] = Math.round(limit((terrain[z][x]+.38)/.9,0,1)*255);
+      if (x < span && z < span) {
+        triangles.push(i,i+1,i+size,i+1,i+size+1,i+size);
+        wire.push(i,i+1,i,i+size,i+1,i+size);
+      }
+      if (z === span && x < span) wire.push(i,i+1);
+      if (x === span && z < span) wire.push(i,i+size);
     }
   }
-  faces.sort((a, b) => a.depth - b.depth);
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = mesh.checked ? .65 : .55;
-  for (const {a, b, c, slopeX, slopeZ} of faces) {
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.lineTo(c.x, c.y);
-    ctx.closePath();
-    ctx.fillStyle = color((a.elevation + b.elevation + c.elevation) / 3, slopeX, slopeZ);
-    ctx.strokeStyle = mesh.checked ? 'rgba(13,27,28,.48)' : ctx.fillStyle;
-    ctx.fill();
-    ctx.stroke();
+  gl.bindBuffer(gl.ARRAY_BUFFER,ground);
+  gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,surface);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(triangles),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lines);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(wire),gl.STATIC_DRAW);
+  faces = triangles.length;
+  edges = wire.length;
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,size,size,0,gl.RED,gl.UNSIGNED_BYTE,pixels);
+}
+
+function bindVertices(buffer) {
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0,3,gl.FLOAT,false,20,0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1,2,gl.FLOAT,false,20,12);
+}
+
+function draw(now = performance.now()) {
+  frame = 0;
+  if (!gl) return;
+  const ratio = Math.min(devicePixelRatio || 1,2);
+  const width = Math.round(canvas.clientWidth * ratio);
+  const h = Math.round(canvas.clientHeight * ratio);
+  if (!width || !h) return;
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== h) canvas.height = h;
+  if (orbit.checked && !pointer && lastFrame) camera.yaw += Math.min(now-lastFrame,40)*.00020;
+  lastFrame = now;
+  const solar = sun.valueAsNumber * Math.PI / 180;
+  const relief = height.valueAsNumber;
+  const sea = (water.valueAsNumber / 100 - .30) * .42 * relief;
+  const yaw = camera.yaw, pitch = camera.pitch;
+  const zoom = camera.zoom;
+  const fit = Math.min(1.7, 1.34 * h/width) * zoom;
+  gl.viewport(0,0,width,h);
+  gl.clearColor(.66,.76,.84,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.uniform4f(uniforms.cameraAngles,Math.cos(yaw),Math.sin(yaw),Math.cos(pitch),Math.sin(pitch));
+  gl.uniform2f(uniforms.scale,fit,fit*width/h);
+  gl.uniform1f(uniforms.relief,relief);
+  gl.uniform1f(uniforms.sea,sea);
+  gl.uniform1f(uniforms.time,now*.001);
+  gl.uniform3f(uniforms.light,-.62*Math.cos(solar),Math.sin(solar),.7846*Math.cos(solar));
+  gl.uniform3f(uniforms.viewDir,Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
+  gl.uniform3fv(uniforms['colors[0]'],palette.flat().map(channel=>channel/255));
+  gl.uniform1i(uniforms.mode,1);
+  bindVertices(ocean);
+  gl.drawArrays(gl.TRIANGLES,0,6);
+  gl.uniform1i(uniforms.mode,0);
+  bindVertices(ground);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,surface);
+  gl.enable(gl.POLYGON_OFFSET_FILL);
+  gl.polygonOffset(1,1);
+  gl.drawElements(gl.TRIANGLES,faces,gl.UNSIGNED_INT,0);
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+  if (mesh.checked) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.uniform1i(uniforms.mode,2);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lines);
+    gl.drawElements(gl.LINES,edges,gl.UNSIGNED_INT,0);
+    gl.disable(gl.BLEND);
   }
+  byId('zoomValue').value = zoom.toFixed(1) + '×';
+  if (orbit.checked) queueDraw();
 }
 
 function limit(value, low, high) {
@@ -296,6 +430,18 @@ function zoom(factor) {
   queueDraw();
 }
 
+function updateLighting() {
+  byId('sunValue').value = sun.value + '°';
+  byId('waterValue').value = water.value + ' %';
+  queueDraw();
+}
+sun.addEventListener('input', updateLighting);
+water.addEventListener('input', updateLighting);
+island.addEventListener('change', rebuild);
+orbit.addEventListener('change', () => {
+  lastFrame = 0;
+  queueDraw();
+});
 roughness.addEventListener('input', rebuild);
 detail.addEventListener('input', rebuild);
 height.addEventListener('input', changeHeight);
@@ -360,6 +506,7 @@ new ResizeObserver(queueDraw).observe(canvas);
 rebuild();
 changeHeight();
 changePalette();
+updateLighting();
 </script>
 </body>
 </html>
