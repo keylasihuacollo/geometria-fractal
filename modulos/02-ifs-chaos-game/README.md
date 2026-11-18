@@ -1,0 +1,14 @@
+# Módulo 2 · IFS y Chaos Game
+
+**Responsable:** _por asignar_
+**Estado:** pendiente
+
+## Qué debe entregar
+
+- `index.html` autocontenido que funcione sin instalar nada
+- Helecho de Barnsley y triángulo de Sierpinski generados con el juego del caos
+- Controles en un panel a la izquierda y lienzo a pantalla completa (referencia: módulo 1)
+
+## Para el informe
+
+Descripción del algoritmo, fortalezas, debilidades y un caso práctico de aplicación. Texto en `docs/informe/`.
